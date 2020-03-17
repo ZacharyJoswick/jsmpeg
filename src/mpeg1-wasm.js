@@ -1,21 +1,23 @@
-JSMpeg.Decoder.MPEG1VideoWASM = (function(){ "use strict";
+import BaseDecoder from './decoder';
+import BitBuffer from './buffer';
+import { Now } from './jsmpeg';
 
-var MPEG1WASM = function(options) {
-	JSMpeg.Decoder.Base.call(this, options);
+export var MPEG1WASM = function(options) {
+	BaseDecoder.call(this, options);
 
 	this.onDecodeCallback = options.onVideoDecode;
 	this.module = options.wasmModule;
 
 	this.bufferSize = options.videoBufferSize || 512*1024;
 	this.bufferMode = options.streaming
-		? JSMpeg.BitBuffer.MODE.EVICT
-		: JSMpeg.BitBuffer.MODE.EXPAND;
+		? BitBuffer.MODE.EVICT
+		: BitBuffer.MODE.EXPAND;
 
 	this.decodeFirstFrame = options.decodeFirstFrame !== false;
 	this.hasSequenceHeader = false;
 };
 
-MPEG1WASM.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
+MPEG1WASM.prototype = Object.create(BaseDecoder.prototype);
 MPEG1WASM.prototype.constructor = MPEG1WASM;
 
 MPEG1WASM.prototype.initializeWasmDecoder = function() {
@@ -70,7 +72,7 @@ MPEG1WASM.prototype.bufferWrite = function(buffers) {
 };
 
 MPEG1WASM.prototype.write = function(pts, buffers) {
-	JSMpeg.Decoder.Base.prototype.write.call(this, pts, buffers);
+	BaseDecoder.prototype.write.call(this, pts, buffers);
 
 	if (!this.hasSequenceHeader && this.functions._mpeg1_decoder_has_sequence_header(this.decoder)) {
 		this.loadSequnceHeader();
@@ -94,7 +96,7 @@ MPEG1WASM.prototype.loadSequnceHeader = function() {
 };
 
 MPEG1WASM.prototype.decode = function() {
-	var startTime = JSMpeg.Now();
+	var startTime = Now();
 
 	if (!this.decoder) {
 		return false;
@@ -120,14 +122,11 @@ MPEG1WASM.prototype.decode = function() {
 
 	this.advanceDecodedTime(1/this.frameRate);
 
-	var elapsedTime = JSMpeg.Now() - startTime;
+	var elapsedTime = Now() - startTime;
 	if (this.onDecodeCallback) {
 		this.onDecodeCallback(this, elapsedTime);
 	}
 	return true;
 };
 
-return MPEG1WASM;
-
-})();
-
+export default MPEG1WASM;

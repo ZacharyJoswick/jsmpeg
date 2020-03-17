@@ -1,6 +1,6 @@
-JSMpeg.WASMModule = (function(){ "use strict";
+import AjaxSource from './ajax';
 
-var WASM = function() {
+export var WASM = function() {
 	this.stackSize = 5 * 1024 * 1024; // emscripten default
 	this.pageSize = 64 * 1024; // wasm page size
 	this.onInitCallback = null;
@@ -13,7 +13,7 @@ WASM.prototype.write = function(buffer) {
 
 WASM.prototype.loadFromFile = function(url, callback) {
 	this.onInitCallback = callback;
-	var ajax = new JSMpeg.Source.Ajax(url, {});
+	var ajax = new AjaxSource(url, {});
 	ajax.connect(this);
 	ajax.start();
 };
@@ -151,7 +151,4 @@ WASM.GetModule = function() {
 	return WASM.CACHED_MODULE;
 };
 
-return WASM;
-
-})();
-
+export default WASM;

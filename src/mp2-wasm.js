@@ -1,23 +1,25 @@
-JSMpeg.Decoder.MP2AudioWASM = (function(){ "use strict";
-
 // Based on kjmp2 by Martin J. Fiedler
 // http://keyj.emphy.de/kjmp2/
 
-var MP2WASM = function(options) {
-	JSMpeg.Decoder.Base.call(this, options);
+import BaseDecoder from './decoder';
+import BitBuffer from './buffer';
+import { Now } from './jsmpeg';
+
+export var MP2WASM = function(options) {
+	BaseDecoder.call(this, options);
 
 	this.onDecodeCallback = options.onAudioDecode;
 	this.module = options.wasmModule;
 
 	this.bufferSize = options.audioBufferSize || 128*1024;
 	this.bufferMode = options.streaming
-		? JSMpeg.BitBuffer.MODE.EVICT
-		: JSMpeg.BitBuffer.MODE.EXPAND;
+		? BitBuffer.MODE.EVICT
+		: BitBuffer.MODE.EXPAND;
 
 	this.sampleRate = 0;
 };
 
-MP2WASM.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
+MP2WASM.prototype = Object.create(BaseDecoder.prototype);
 MP2WASM.prototype.constructor = MP2WASM;
 
 MP2WASM.prototype.initializeWasmDecoder = function() {
@@ -72,7 +74,7 @@ MP2WASM.prototype.bufferWrite = function(buffers) {
 };
 
 MP2WASM.prototype.decode = function() {
-	var startTime = JSMpeg.Now();
+	var startTime = Now();
 
 	if (!this.decoder) {
 		return false;
@@ -103,7 +105,7 @@ MP2WASM.prototype.decode = function() {
 
 	this.advanceDecodedTime(MP2WASM.SAMPLES_PER_FRAME / this.sampleRate);
 
-	var elapsedTime = JSMpeg.Now() - startTime;
+	var elapsedTime = Now() - startTime;
 	if (this.onDecodeCallback) {
 		this.onDecodeCallback(this, elapsedTime);
 	}
@@ -118,7 +120,4 @@ MP2WASM.prototype.getCurrentTime = function() {
 
 MP2WASM.SAMPLES_PER_FRAME = 1152;
 
-return MP2WASM;
-
-})();
-
+export default MP2WASM;

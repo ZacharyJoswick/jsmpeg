@@ -1,6 +1,4 @@
-JSMpeg.Source.Fetch = (function(){ "use strict";
-
-var FetchSource = function(url, options) {
+export var FetchSource = function(url, options) {
 	this.url = url;
 	this.destination = null;
 	this.request = null;
@@ -69,6 +67,4 @@ FetchSource.prototype.abort = function() {
 	this.aborted = true;
 };
 
-return FetchSource;
-
-})();
+export default FetchSource;

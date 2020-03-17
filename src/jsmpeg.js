@@ -1,122 +1,144 @@
 /*! jsmpeg v1.0 | (c) Dominic Szablewski | MIT license */
 
+import AjaxProgressiveSource from './ajax-progressive';
+import AjaxSource from './ajax';
+import WSSource from './websocket';
 
-// This sets up the JSMpeg "Namespace". The object is empty apart from the Now()
-// utility function and the automatic CreateVideoElements() after DOMReady.
-var JSMpeg = {
+import BaseDecoder from './decoder';
+import MP2 from './mp2';
+import MPEG1 from './mpeg1';
 
-	// The Player sets up the connections between source, demuxer, decoders,
-	// renderer and audio output. It ties everything together, is responsible
-	// of scheduling decoding and provides some convenience methods for
-	// external users.
-	Player: null,
+import TS from './ts';
+import WebAudioOut from './webaudio';
 
-	// A Video Element wraps the Player, shows HTML controls to start/pause
-	// the video and handles Audio unlocking on iOS. VideoElements can be
-	// created directly in HTML using the <div class="jsmpeg"/> tag.
-	VideoElement: null,
-	
-	// The BitBuffer wraps a Uint8Array and allows reading an arbitrary number
-	// of bits at a time. On writing, the BitBuffer either expands its
-	// internal buffer (for static files) or deletes old data (for streaming).
-	BitBuffer: null,
+import CanvasRenderer from './canvas2d';
+import WebGLRenderer from './webgl';
 
-	// A Source provides raw data from HTTP, a WebSocket connection or any
-	// other mean. Sources must support the following API:
-	//   .connect(destinationNode)
-	//   .write(buffer)
-	//   .start() - start reading
-	//   .resume(headroom) - continue reading; headroom to play pos in seconds
-	//   .established - boolean, true after connection is established
-	//   .completed - boolean, true if the source is completely loaded
-	//   .progress - float 0-1
-	Source: {}, 
+import VideoElement from './video-element';
 
-	// A Demuxer may sit between a Source and a Decoder. It separates the
-	// incoming raw data into Video, Audio and other Streams. API:
-	//   .connect(streamId, destinationNode)
-	//   .write(buffer)
-	//   .currentTime – float, in seconds
-	//   .startTime - float, in seconds
-	Demuxer: {},
 
-	// A Decoder accepts an incoming Stream of raw Audio or Video data, buffers
-	// it and upon `.decode()` decodes a single frame of data. Video decoders
-	// call `destinationNode.render(Y, Cr, CB)` with the decoded pixel data;
-	// Audio decoders call `destinationNode.play(left, right)` with the decoded
-	// PCM data. API:
-	//   .connect(destinationNode)
-	//   .write(pts, buffer)
-	//   .decode()
-	//   .seek(time)
-	//   .currentTime - float, in seconds
-	//   .startTime - float, in seconds
-	Decoder: {},
+// The Player sets up the connections between source, demuxer, decoders,
+// renderer and audio output. It ties everything together, is responsible
+// of scheduling decoding and provides some convenience methods for
+// external users.
+export { Player } from './player';
 
-	// A Renderer accepts raw YCrCb data in 3 separate buffers via the render()
-	// method. Renderers typically convert the data into the RGBA color space
-	// and draw it on a Canvas, but other output - such as writing PNGs - would
-	// be conceivable. API:
-	//   .render(y, cr, cb) - pixel data as Uint8Arrays
-	//   .enabled - wether the renderer does anything upon receiving data
-	Renderer: {},
+// A Video Element wraps the Player, shows HTML controls to start/pause
+// the video and handles Audio unlocking on iOS. VideoElements can be
+// created directly in HTML using the <div class="jsmpeg"/> tag.
+export { VideoElement } from './video-element';
 
-	// Audio Outputs accept raw Stero PCM data in 2 separate buffers via the
-	// play() method. Outputs typically play the audio on the user's device.
-	// API:
-	//   .play(sampleRate, left, right) - rate in herz; PCM data as Uint8Arrays
-	//   .stop()
-	//   .enqueuedTime - float, in seconds
-	//   .enabled - wether the output does anything upon receiving data
-	AudioOutput: {}, 
+// The BitBuffer wraps a Uint8Array and allows reading an arbitrary number
+// of bits at a time. On writing, the BitBuffer either expands its
+// internal buffer (for static files) or deletes old data (for streaming).
+export { BitBuffer } from './buffer';
 
-	Now: function() {
-		return window.performance 
-			? window.performance.now() / 1000
-			: Date.now() / 1000;
-	},
-
-	CreateVideoElements: function() {
-		var elements = document.querySelectorAll('.jsmpeg');
-		for (var i = 0; i < elements.length; i++) {
-			new JSMpeg.VideoElement(elements[i]);
-		}
-	},
-
-	Fill: function(array, value) {
-		if (array.fill) {
-			array.fill(value);
-		}
-		else {
-			for (var i = 0; i < array.length; i++) {
-				array[i] = value;
-			}
-		}
-	},
-
-	Base64ToArrayBuffer: function(base64) {
-		var binary =  window.atob(base64);
-		var length = binary.length;
-		var bytes = new Uint8Array(length);
-		for (var i = 0; i < length; i++)        {
-			bytes[i] = binary.charCodeAt(i);
-		}
-		return bytes.buffer;
-	},
-
-	// The build process may append `JSMpeg.WASM_BINARY_INLINED = base64data;` 
-	// to the minified source.
-	// If this property is present, jsmpeg will use the inlined binary data
-	// instead of trying to load a jsmpeg.wasm file via Ajax.
-	WASM_BINARY_INLINED: null
+// A Source provides raw data from HTTP, a WebSocket connection or any
+// other mean. Sources must support the following API:
+//   .connect(destinationNode)
+//   .write(buffer)
+//   .start() - start reading
+//   .resume(headroom) - continue reading; headroom to play pos in seconds
+//   .established - boolean, true after connection is established
+//   .completed - boolean, true if the source is completely loaded
+//   .progress - float 0-1
+export var Source = {
+  AjaxProgressive: AjaxProgressiveSource,
+  Ajax: AjaxSource,
+  WebSocket: WSSource,
 };
+
+// A Demuxer may sit between a Source and a Decoder. It separates the
+// incoming raw data into Video, Audio and other Streams. API:
+//   .connect(streamId, destinationNode)
+//   .write(buffer)
+//   .currentTime – float, in seconds
+//   .startTime - float, in seconds
+export var Demuxer = {
+  TS,
+};
+
+// A Decoder accepts an incoming Stream of raw Audio or Video data, buffers
+// it and upon `.decode()` decodes a single frame of data. Video decoders
+// call `destinationNode.render(Y, Cr, CB)` with the decoded pixel data;
+// Audio decoders call `destinationNode.play(left, right)` with the decoded
+// PCM data. API:
+//   .connect(destinationNode)
+//   .write(pts, buffer)
+//   .decode()
+//   .seek(time)
+//   .currentTime - float, in seconds
+//   .startTime - float, in seconds
+export var Decoder = {
+  Base: BaseDecoder,
+  MP2Audio: MP2,
+  MPEG1Video: MPEG1,
+};
+
+// A Renderer accepts raw YCrCb data in 3 separate buffers via the render()
+// method. Renderers typically convert the data into the RGBA color space
+// and draw it on a Canvas, but other output - such as writing PNGs - would
+// be conceivable. API:
+//   .render(y, cr, cb) - pixel data as Uint8Arrays
+//   .enabled - wether the renderer does anything upon receiving data
+export var Renderer = {
+  Canvas: CanvasRenderer,
+  WebGL: WebGLRenderer,
+};
+
+// Audio Outputs accept raw Stero PCM data in 2 separate buffers via the
+// play() method. Outputs typically play the audio on the user's device.
+// API:
+//   .play(sampleRate, left, right) - rate in herz; PCM data as Uint8Arrays
+//   .stop()
+//   .enqueuedTime - float, in seconds
+//   .enabled - wether the output does anything upon receiving data
+export var AudioOutput = {
+  WebAudio: WebAudioOut,
+};
+
+export var Now = function () {
+  return window.performance
+    ? window.performance.now() / 1000
+    : Date.now() / 1000;
+};
+
+export var CreateVideoElements = function () {
+  const elements = document.querySelectorAll('.jsmpeg');
+  for (let i = 0; i < elements.length; i++) {
+    new VideoElement(elements[i]);
+  }
+};
+
+export var Fill = function (array, value) {
+  if (array.fill) {
+    array.fill(value);
+  } else {
+    for (let i = 0; i < array.length; i++) {
+      array[i] = value;
+    }
+  }
+};
+
+export var Base64ToArrayBuffer = function (base64) {
+  const binary = window.atob(base64);
+  const { length } = binary;
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
+// The build process may append `JSMpeg.WASM_BINARY_INLINED = base64data;`
+// to the minified source.
+// If this property is present, jsmpeg will use the inlined binary data
+// instead of trying to load a jsmpeg.wasm file via Ajax.
+// WASM_BINARY_INLINED: null
 
 // Automatically create players for all found <div class="jsmpeg"/> elements.
 if (document.readyState === 'complete') {
-	JSMpeg.CreateVideoElements();
+  CreateVideoElements();
+} else {
+  document.addEventListener('DOMContentLoaded', CreateVideoElements);
 }
-else {
-	document.addEventListener('DOMContentLoaded', JSMpeg.CreateVideoElements);
-}
-
-

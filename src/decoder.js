@@ -1,6 +1,4 @@
-JSMpeg.Decoder.Base = (function(){ "use strict";
-
-var BaseDecoder = function(options) {
+export var BaseDecoder = function(options) {
 	this.destination = null;
 	this.canPlay = false;
 
@@ -105,8 +103,4 @@ BaseDecoder.prototype.getCurrentTime = function() {
 	return this.decodedTime;
 };
 
-return BaseDecoder;
-
-})();
-
-
+export default BaseDecoder;

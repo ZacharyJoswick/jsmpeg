@@ -1,6 +1,19 @@
-JSMpeg.Player = (function(){ "use strict";
+import WSSource from './websocket';
+import AjaxProgressiveSource from './ajax-progressive';
+import AjaxSource from './ajax';
+import TS from './ts';
+import WASM from './wasm-module';
+import MPEG1 from './mpeg1';
+import MPEG1WASM from './mpeg1-wasm';
+import WebGLRenderer from './webgl';
+import CanvasRenderer from './canvas2d';
+import WebAudioOut from './webaudio';
+import MP2 from './mp2';
+import MP2WASM from './mp2-wasm';
+import {Now, Base64ToArrayBuffer} from './jsmpeg';
+import {WASM_BINARY_INLINED} from "./jsmpeg.wasm.js";
 
-var Player = function(url, options) {
+export var Player = function(url, options) {
 	this.options = options || {};
 
 	if (options.source) {
@@ -8,15 +21,15 @@ var Player = function(url, options) {
 		options.streaming = !!this.source.streaming;
 	}
 	else if (url.match(/^wss?:\/\//)) {
-		this.source = new JSMpeg.Source.WebSocket(url, options);
+		this.source = new WSSource(url, options);
 		options.streaming = true;
 	}
 	else if (options.progressive !== false) {
-		this.source = new JSMpeg.Source.AjaxProgressive(url, options);
+		this.source = new AjaxProgressiveSource(url, options);
 		options.streaming = false;
 	}
 	else {
-		this.source = new JSMpeg.Source.Ajax(url, options);
+		this.source = new AjaxSource(url, options);
 		options.streaming = false;
 	}
 
@@ -24,33 +37,33 @@ var Player = function(url, options) {
 	this.loop = options.loop !== false;
 	this.autoplay = !!options.autoplay || options.streaming;
 
-	this.demuxer = new JSMpeg.Demuxer.TS(options);
+	this.demuxer = new TS(options);
 	this.source.connect(this.demuxer);
 
-	if (!options.disableWebAssembly && JSMpeg.WASMModule.IsSupported()) {
-		this.wasmModule = JSMpeg.WASMModule.GetModule();
+	if (!options.disableWebAssembly && WASM.IsSupported()) {
+		this.wasmModule = WASM.GetModule();
 		options.wasmModule = this.wasmModule;
 	}
 
 	if (options.video !== false) {
 		this.video = options.wasmModule
-			? new JSMpeg.Decoder.MPEG1VideoWASM(options)
-			: new JSMpeg.Decoder.MPEG1Video(options);
+			? new MPEG1WASM(options)
+			: new MPEG1(options);
 
-		this.renderer = !options.disableGl && JSMpeg.Renderer.WebGL.IsSupported()
-			? new JSMpeg.Renderer.WebGL(options)
-			: new JSMpeg.Renderer.Canvas2D(options);
+		this.renderer = !options.disableGl && WebGLRenderer.IsSupported()
+			? new WebGLRenderer(options)
+			: new CanvasRenderer(options);
 		
-		this.demuxer.connect(JSMpeg.Demuxer.TS.STREAM.VIDEO_1, this.video);
+		this.demuxer.connect(TS.STREAM.VIDEO_1, this.video);
 		this.video.connect(this.renderer);
 	}
 
-	if (options.audio !== false && JSMpeg.AudioOutput.WebAudio.IsSupported()) {
+	if (options.audio !== false && WebAudioOut.IsSupported()) {
 		this.audio = options.wasmModule
-			? new JSMpeg.Decoder.MP2AudioWASM(options)
-			: new JSMpeg.Decoder.MP2Audio(options);
-		this.audioOut = new JSMpeg.AudioOutput.WebAudio(options);
-		this.demuxer.connect(JSMpeg.Demuxer.TS.STREAM.AUDIO_1, this.audio);
+			? new MP2WASM(options)
+			: new MP2(options);
+		this.audioOut = new WebAudioOut(options);
+		this.demuxer.connect(TS.STREAM.AUDIO_1, this.audio);
 		this.audio.connect(this.audioOut);
 	}
 
@@ -76,8 +89,8 @@ var Player = function(url, options) {
 		if (this.wasmModule.ready) {
 			this.startLoading();
 		}
-		else if (JSMpeg.WASM_BINARY_INLINED) {
-			var wasm = JSMpeg.Base64ToArrayBuffer(JSMpeg.WASM_BINARY_INLINED);
+		else if (WASM_BINARY_INLINED) {
+			var wasm = Base64ToArrayBuffer(WASM_BINARY_INLINED);
 			this.wasmModule.loadFromBuffer(wasm, this.startLoading.bind(this));
 		}
 		else {
@@ -179,7 +192,7 @@ Player.prototype.seek = function(time) {
 		this.audio.seek(time + startOffset);
 	}
 
-	this.startTime = JSMpeg.Now() - time;
+	this.startTime = Now() - time;
 };
 
 Player.prototype.getCurrentTime = function() {
@@ -204,7 +217,7 @@ Player.prototype.update = function() {
 
 	if (!this.isPlaying) {
 		this.isPlaying = true;
-		this.startTime = JSMpeg.Now() - this.currentTime;
+		this.startTime = Now() - this.currentTime;
 
 		if (this.options.onPlay) {
 			this.options.onPlay(this);
@@ -276,7 +289,7 @@ Player.prototype.updateForStaticFile = function() {
 
 	else if (this.video) {
 		// Video only - sync it to player's wallclock
-		var targetTime = (JSMpeg.Now() - this.startTime) + this.video.startTime,
+		var targetTime = (Now() - this.startTime) + this.video.startTime,
 			lateTime = targetTime - this.video.currentTime,
 			frameTime = 1/this.video.frameRate;
 
@@ -318,7 +331,5 @@ Player.prototype.updateForStaticFile = function() {
 	}
 };
 
-return Player;
-
-})();
+export default Player;
 

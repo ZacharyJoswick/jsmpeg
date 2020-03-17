@@ -1,19 +1,21 @@
-JSMpeg.Decoder.MPEG1Video = (function(){ "use strict";
-
 // Inspired by Java MPEG-1 Video Decoder and Player by Zoltan Korandi 
 // https://sourceforge.net/projects/javampeg1video/
 
-var MPEG1 = function(options) {
-	JSMpeg.Decoder.Base.call(this, options);
+import BaseDecoder from './decoder';
+import BitBuffer from './buffer';
+import { Now, Fill } from './jsmpeg';
+
+export var MPEG1 = function(options) {
+	BaseDecoder.call(this, options);
 
 	this.onDecodeCallback = options.onVideoDecode;
 
 	var bufferSize = options.videoBufferSize || 512*1024;
 	var bufferMode = options.streaming
-		? JSMpeg.BitBuffer.MODE.EVICT
-		: JSMpeg.BitBuffer.MODE.EXPAND;
+		? BitBuffer.MODE.EVICT
+		: BitBuffer.MODE.EXPAND;
 
-	this.bits = new JSMpeg.BitBuffer(bufferSize, bufferMode);
+	this.bits = new BitBuffer(bufferSize, bufferMode);
 
 	this.customIntraQuantMatrix = new Uint8Array(64);
 	this.customNonIntraQuantMatrix = new Uint8Array(64);
@@ -23,11 +25,11 @@ var MPEG1 = function(options) {
 	this.decodeFirstFrame = options.decodeFirstFrame !== false;
 };
 
-MPEG1.prototype = Object.create(JSMpeg.Decoder.Base.prototype);
+MPEG1.prototype = Object.create(BaseDecoder.prototype);
 MPEG1.prototype.constructor = MPEG1;
 
 MPEG1.prototype.write = function(pts, buffers) {
-	JSMpeg.Decoder.Base.prototype.write.call(this, pts, buffers);
+	BaseDecoder.prototype.write.call(this, pts, buffers);
 
 	if (!this.hasSequenceHeader) {
 		if (this.bits.findStartCode(MPEG1.START.SEQUENCE) === -1) {
@@ -42,7 +44,7 @@ MPEG1.prototype.write = function(pts, buffers) {
 };
 
 MPEG1.prototype.decode = function() {
-	var startTime = JSMpeg.Now();
+	var startTime = Now();
 	
 	if (!this.hasSequenceHeader) {
 		return false;
@@ -56,7 +58,7 @@ MPEG1.prototype.decode = function() {
 	this.decodePicture();
 	this.advanceDecodedTime(1/this.frameRate);
 
-	var elapsedTime = JSMpeg.Now() - startTime;
+	var elapsedTime = Now() - startTime;
 	if (this.onDecodeCallback) {
 		this.onDecodeCallback(this, elapsedTime);
 	}
@@ -842,7 +844,7 @@ MPEG1.prototype.decodeBlock = function(block) {
 		else {
 			MPEG1.IDCT(this.blockData);
 			MPEG1.CopyBlockToDestination(this.blockData, destArray, destIndex, scan);
-			JSMpeg.Fill(this.blockData, 0);
+			Fill(this.blockData, 0);
 		}
 	}
 	else {
@@ -854,7 +856,7 @@ MPEG1.prototype.decodeBlock = function(block) {
 		else {
 			MPEG1.IDCT(this.blockData);
 			MPEG1.AddBlockToDestination(this.blockData, destArray, destIndex, scan);
-			JSMpeg.Fill(this.blockData, 0);
+			Fill(this.blockData, 0);
 		}
 	}
 
@@ -1677,7 +1679,4 @@ MPEG1.START = {
 	USER_DATA: 0xB2
 };
 
-return MPEG1;
-
-})();
-
+export default MPEG1;
